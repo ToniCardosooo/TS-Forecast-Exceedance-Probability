@@ -1,16 +1,11 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, log_loss
 
-from datasetsforecast.m3 import M3
 from statsforecast.models import SeasonalNaive
 from statsforecast import StatsForecast
-from neuralforecast.models import NHITS, GRU, VanillaTransformer
 from neuralforecast import NeuralForecast
-from neuralforecast.losses.pytorch import MQLoss, DistributionLoss
-
 
 def preprocess_dataset(df, horizon, percentile):
     # obtain percentile value based on the train data
@@ -25,7 +20,7 @@ def preprocess_dataset(df, horizon, percentile):
 
 def prob_and_class(row_pred, row_test, model_name, percentile):
     # check whether MQLoss or DistributionLoss was used by verifying there isnt/is a column with "loc"
-    
+
     # DistributionLoss
     if any(["loc" in col for col in row_pred.index]):
         mean = row_pred[f'{model_name}-loc']
@@ -101,3 +96,20 @@ def train_and_predict(models, train_df, test_df, horizon, scaler, percentile_tra
 
     pred['unique_id'] = pred.index
     return pred
+
+def get_global_auc_logloss(pred_df, models_names, filename="auc_logloss.csv"):
+    auc_logloss_df = []
+    
+    y_true_above_thr = pred_df['y_true_above_thr'].tolist() + [0,1]
+    for model_name in models_names:
+        model_forecast_above_thr = pred_df[f'{model_name}_forecast_above_thr'].tolist() + [0,1]
+        model_auc = roc_auc_score(y_true_above_thr, model_forecast_above_thr)
+        model_logloss = log_loss(y_true_above_thr, model_forecast_above_thr)
+        auc_logloss_df.append({
+            'Model': model_name,
+            'AUC': model_auc,
+            'LogLoss': model_logloss
+        })
+    
+    auc_logloss_df = pd.DataFrame(data=auc_logloss_df)
+    auc_logloss_df.to_csv(filename, index=False)
