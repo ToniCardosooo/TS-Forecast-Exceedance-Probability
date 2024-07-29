@@ -24,19 +24,31 @@ def preprocess_dataset(df, horizon, percentile):
 
 
 def prob_and_class(row_pred, row_test, model_name, percentile):
-    z_low, z_high = norm.ppf([1-percentile/100, percentile/100])
+    # check whether MQLoss or DistributionLoss was used by verifying there isnt/is a column with "loc"
     
-    # x_high = mean + std * z_high
-    # x_low = mean + std * z_low
-
-    conf_int_length = percentile - (100-percentile)
-
-    std = (row_pred[f'{model_name}-hi-{conf_int_length}'] - row_pred[f'{model_name}-lo-{conf_int_length}']) / (z_high - z_low)
-    mean = row_pred[f'{model_name}-hi-{conf_int_length}'] - z_high * std
+    # DistributionLoss
+    if any(["loc" in col for col in row_pred.index]):
+        mean = row_pred[f'{model_name}-loc']
+        std = row_pred[f'{model_name}-scale']
+        
+        probability = 1 - norm.cdf(row_test[f'{percentile}th_percentile'], loc=mean, scale=std)
+        classification = 1 if probability >= 0.5 else 0
+        return probability, classification
     
-    probability = 1 - norm.cdf(row_test[f'{percentile}th_percentile'], loc=mean, scale=std)
-    classification = 1 if probability >= 0.5 else 0
-    return probability, classification
+    # MQLoss
+    else:
+        # x_high = mean + std * z_high
+        # x_low = mean + std * z_low
+        z_low, z_high = norm.ppf([1-percentile/100, percentile/100])
+
+        conf_int_length = percentile - (100-percentile)
+
+        std = (row_pred[f'{model_name}-hi-{conf_int_length}'] - row_pred[f'{model_name}-lo-{conf_int_length}']) / (z_high - z_low)
+        mean = row_pred[f'{model_name}-hi-{conf_int_length}'] - z_high * std
+        
+        probability = 1 - norm.cdf(row_test[f'{percentile}th_percentile'], loc=mean, scale=std)
+        classification = 1 if probability >= 0.5 else 0
+        return probability, classification
 
 
 """

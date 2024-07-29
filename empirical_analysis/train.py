@@ -52,7 +52,7 @@ if __name__ == '__main__':
             # start_padding_enabled=True for NHITS and MLP
             models[model_class.__name__] = model_class(
                 h=HORIZON,
-                loss=MQLoss(level=LEVEL_LIST),
+                loss=LOSS(**LOSS_KWARGS),
                 start_padding_enabled=True,
                 config=config,
                 search_alg=HyperOptSearch(),
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         else:
             models[model_class.__name__] = model_class(
                 h=HORIZON,
-                loss=MQLoss(level=LEVEL_LIST),
+                loss=LOSS(**LOSS_KWARGS),
                 config=config,
                 search_alg=HyperOptSearch(),
                 backend='ray',
