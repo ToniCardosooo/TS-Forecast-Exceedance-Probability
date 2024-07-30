@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
         config = model_class.get_default_config(h=HORIZON, backend='ray')
         config["input_size"] = LAG
-        config["max_steps"] = 15  ### train on 1500 max steps
+        config["max_steps"] = 1500  ### train on 1500 max steps
         config["val_check_steps"] = 100
         config["random_seed"] = tune.randint(1, 10)
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
             config=config,
             search_alg=HyperOptSearch(),
             backend='ray',
-            num_samples=2 ### train on 20 samples
+            num_samples=20 ### train on 20 samples
         )
 
     # Train models and save predictions
