@@ -15,7 +15,7 @@ from utils import preprocess_dataset, train_and_predict, get_global_auc_logloss
 DATASET = M3
 GROUP = 'Monthly'
 THR_PERCENTILE = 95
-LOSS = DistributionLoss
+LOSS = MQLoss
 LEVEL_LIST = [70, 80, 90]
 LOSS_KWARGS = {'level': LEVEL_LIST} if LOSS == MQLoss else {'distribution': 'Normal', 'level': LEVEL_LIST, 'return_params': True}
 HORIZON = 12
@@ -48,7 +48,7 @@ if __name__ == '__main__':
         config = model_class.get_default_config(h=HORIZON, backend='ray')
         config["input_size"] = LAG
         config["max_steps"] = 1500  ### train on 1500 max steps
-        config["val_check_steps"] = 100
+        config["val_check_steps"] = 300 ### 300 steps interval for validation
         config["random_seed"] = tune.randint(1, 10)
 
         # start_padding_enabled=True for NHITS and MLP
