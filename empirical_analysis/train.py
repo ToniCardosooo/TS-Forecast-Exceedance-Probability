@@ -3,7 +3,7 @@ import os
 
 from datasetsforecast.m3 import M3
 
-from neuralforecast.auto import AutoMLP, AutoNHITS, AutoLSTM, AutoGRU # to include DeepAR
+from neuralforecast.auto import AutoMLP, AutoNHITS, AutoLSTM, AutoGRU, AutoDeepAR
 from neuralforecast.losses.pytorch import MQLoss, DistributionLoss
 from ray import tune
 from ray.tune.search.hyperopt import HyperOptSearch
@@ -13,10 +13,11 @@ from utilsforecast.losses import smape
 from utils import preprocess_dataset, train_and_predict, get_global_auc_logloss
 
 DATASET = M3
+GROUP = 'Monthly'
+THR_PERCENTILE = 95
 LOSS = DistributionLoss
 LEVEL_LIST = [70, 80, 90]
 LOSS_KWARGS = {'level': LEVEL_LIST} if LOSS == MQLoss else {'distribution': 'Normal', 'level': LEVEL_LIST, 'return_params': True}
-THR_PERCENTILE = 95
 HORIZON = 12
 LAG = 24 
 SCALER = 'standard'
@@ -25,18 +26,21 @@ SCALER = 'standard'
 if __name__ == '__main__':
     dataset_name = DATASET.__name__
 
-    df, _, _ = DATASET.load(directory='./', group='Monthly')
+    df, _, _ = DATASET.load(directory='./', group=GROUP)
     df['ds'] = pd.to_datetime(df['ds'])
     train_df, test_df = preprocess_dataset(df, HORIZON, THR_PERCENTILE)
     
     try:
-        os.makedirs(f"./{dataset_name}_{THR_PERCENTILE}_{LOSS.__name__}")
+        os.makedirs(f"./{dataset_name}_{GROUP}_{THR_PERCENTILE}_{LOSS.__name__}")
     except OSError:
-        print(f"Directory {dataset_name}_{THR_PERCENTILE}_{LOSS.__name__} already exists!")
+        print(f"Directory {dataset_name}_{GROUP}_{THR_PERCENTILE}_{LOSS.__name__} already exists!")
 
-    os.chdir(f"./{dataset_name}_{THR_PERCENTILE}_{LOSS.__name__}")
+    os.chdir(f"./{dataset_name}_{GROUP}_{THR_PERCENTILE}_{LOSS.__name__}")
 
-    model_classes = [AutoMLP, AutoNHITS, AutoLSTM, AutoGRU] # to include DeepAR but it doesnt use MQLoss
+    model_classes = [AutoMLP, AutoNHITS, AutoLSTM, AutoGRU]
+    if LOSS == DistributionLoss:
+        model_classes.append(AutoDeepAR)
+
     models = {}
 
     for model_class in model_classes:
