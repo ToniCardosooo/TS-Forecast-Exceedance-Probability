@@ -30,13 +30,15 @@ if __name__ == '__main__':
     df, _, _ = DATASET.load(directory='./', group=GROUP)
     df['ds'] = pd.to_datetime(df['ds'])
     train_df, test_df = preprocess_dataset(df, HORIZON, THR_PERCENTILE)
+
+    experiment_id = f"{GROUP}_{THR_PERCENTILE}_{LOSS.__name__}"
     
     try:
-        os.makedirs(f"./{dataset_name}_{GROUP}_{THR_PERCENTILE}_{LOSS.__name__}")
+        os.makedirs(f"./{dataset_name}_{experiment_id}")
     except OSError:
-        print(f"Directory {dataset_name}_{GROUP}_{THR_PERCENTILE}_{LOSS.__name__} already exists!")
+        print(f"Directory {dataset_name}_{experiment_id} already exists!")
 
-    os.chdir(f"./{dataset_name}_{GROUP}_{THR_PERCENTILE}_{LOSS.__name__}")
+    os.chdir(f"./{dataset_name}_{experiment_id}")
 
     model_classes = [AutoMLP, AutoNHITS, AutoLSTM, AutoGRU]
     if LOSS == DistributionLoss:
@@ -80,13 +82,13 @@ if __name__ == '__main__':
 
     # Train models and save predictions
     pred_df = train_and_predict(models, train_df, test_df, horizon=HORIZON, scaler=SCALER, percentile_training_levels=LEVEL_LIST, test_percentile=THR_PERCENTILE)
-    pred_df.to_csv(f"pred_df_{dataset_name}_{THR_PERCENTILE}_{LOSS.__name__}.csv", index=True)
+    pred_df.to_csv(f"pred_df_{dataset_name}_{experiment_id}.csv", index=True)
 
     smape_names = [model_name+'-median' for model_name in models.keys()] + ['SeasonalNaive']
     smape_df = smape(pred_df, models=smape_names, id_col='unique_id', target_col='y_true')
-    smape_df.to_csv(f"smape_{dataset_name}_{THR_PERCENTILE}_{LOSS.__name__}.csv", index=False)
+    smape_df.to_csv(f"smape_{dataset_name}_{experiment_id}.csv", index=False)
 
-    get_global_auc_logloss(pred_df, list(models.keys())+['SeasonalNaive'], filename=f"auc_logloss_{dataset_name}_{THR_PERCENTILE}_{LOSS.__name__}.csv")
+    get_global_auc_logloss(pred_df, list(models.keys())+['SeasonalNaive'], filename=f"auc_logloss_{dataset_name}_{experiment_id}.csv")
 
 
 """ 
