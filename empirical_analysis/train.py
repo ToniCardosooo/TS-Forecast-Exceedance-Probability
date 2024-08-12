@@ -1,7 +1,9 @@
 import pandas as pd
 import os
 
-from datasetsforecast.m3 import M3
+from datasetsforecast.m3 import M3 # Monthly, Quarterly
+from codebase.load_data.tourism import TourismDataset # Monthly, Quarterly
+from codebase.load_data.gluonts import GluontsDataset # m1_monthly, m1_quarterly
 
 from neuralforecast.auto import AutoMLP, AutoNHITS, AutoLSTM, AutoGRU, AutoDeepAR
 from neuralforecast.losses.pytorch import MQLoss, DistributionLoss
@@ -10,10 +12,16 @@ from ray.tune.search.hyperopt import HyperOptSearch
 
 from utilsforecast.losses import smape
 
-from utils import preprocess_dataset, train_and_numerical_forecast, predict_exceedance_from_percentiles, predict_exceedance_from_params, get_global_auc_logloss
+from empirical_analysis.utils import (
+    preprocess_dataset, 
+    train_and_numerical_forecast, 
+    predict_exceedance_from_percentiles, 
+    predict_exceedance_from_params, 
+    get_global_auc_logloss
+)
 
-DATASET = M3
-GROUP = 'Monthly'
+DATASET = GluontsDataset
+GROUP = 'm1_monthly' # m1_monthly, m1_quarterly
 THR_PERCENTILE = [90, 95, 99]
 LOSS = MQLoss
 
@@ -27,8 +35,14 @@ SCALER = 'standard'
 if __name__ == '__main__':
     dataset_name = DATASET.__name__
 
-    df, _, _ = DATASET.load(directory='./', group=GROUP)
-    df['ds'] = pd.to_datetime(df['ds'])
+    if DATASET == M3:
+        df, _, _ = DATASET.load(directory='./', group=GROUP)
+        df['ds'] = pd.to_datetime(df['ds'])
+    else:
+        df = DATASET.load_data(group=GROUP)
+        if GROUP == 'm1_monthly': GROUP = 'Monthly'
+        elif GROUP == 'm1_quarterly': GROUP = 'Quarterly'
+
     train_df, test_df = preprocess_dataset(df, HORIZON, THR_PERCENTILE)
 
     experiment_id = f"{GROUP}_{LOSS.__name__}"
@@ -53,7 +67,7 @@ if __name__ == '__main__':
         config["input_size"] = LAG
         config["max_steps"] = 1500  ### train on 1500 max steps
         config["val_check_steps"] = 300 ### 300 steps interval for validation
-        config["random_seed"] = tune.randint(1, 10)
+        config["random_seed"] = tune.randint(1, 100)
         config["enable_checkpointing"] = True
 
         # start_padding_enabled=True for NHITS and MLP
@@ -82,13 +96,24 @@ if __name__ == '__main__':
         models[model_class.__name__] = model_class(**model_kwargs)
 
     # Train models and save numerical forecast predictions
-    forecast_df = train_and_numerical_forecast(models, train_df, test_df, horizon=HORIZON, group=GROUP, scaler=SCALER, percentile_training_levels=LEVEL_LIST)
-    forecast_df.to_csv(f"forecast_df_{dataset_name}_{experiment_id}.csv", index=False)
+    if f"forecast_df_{dataset_name}_{experiment_id}.csv" not in os.listdir():
+        forecast_df = train_and_numerical_forecast(models, train_df, test_df, horizon=HORIZON, group=GROUP, scaler=SCALER, percentile_training_levels=LEVEL_LIST)
+        forecast_df.to_csv(f"forecast_df_{dataset_name}_{experiment_id}.csv", index=False)
+    else:
+        print("Forecast values already exist!")
+        forecast_df = pd.read_csv(f"forecast_df_{dataset_name}_{experiment_id}.csv")
 
     # Get SMAPE values
     models_names = ['SeasonalNaive'] + list(models.keys())
+    
+    if LOSS == MQLoss:
+        models_names = ['SeasonalNaive'] + [model_name+"-median" for model_name in models.keys()]
+
     smape_df = smape(forecast_df, models=models_names, id_col='unique_id', target_col='y_true')
     smape_df.to_csv(f"smape_{dataset_name}_{experiment_id}.csv", index=False)
+
+    if LOSS == MQLoss:
+        models_names = ['SeasonalNaive'] + list(models.keys())
 
     # Predict exceedance events, save them and perform AUC and Log Loss metrics on the results
     # From percentiles

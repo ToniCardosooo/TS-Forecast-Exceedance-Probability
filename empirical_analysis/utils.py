@@ -30,6 +30,7 @@ def predict_exceedance_from_percentiles(pred_df, test_df, models_names, percenti
 
         for model_name in models_names:
             model_exceedance_preds = []
+            model_exceedance_prob_preds = []
 
             for i in range(pred_df.shape[0]):
                 row_pred = pred_df.iloc[i, :]
@@ -40,9 +41,12 @@ def predict_exceedance_from_percentiles(pred_df, test_df, models_names, percenti
                 
                 probability = 1 - norm.cdf(row_test[f'y_percentile_{percentile}'], loc=mean, scale=std)
                 classification = 1 if probability >= 0.5 else 0
+
+                model_exceedance_prob_preds.append(probability)
                 model_exceedance_preds.append(classification)
             
             exceedance_df[f'{model_name}_{percentile}'] = model_exceedance_preds
+            exceedance_df[f'{model_name}_prob_{percentile}'] = model_exceedance_prob_preds
     
     exceedance_df.to_csv(filename, index=False)
     return exceedance_df
@@ -55,6 +59,7 @@ def predict_exceedance_from_params(pred_df, test_df, models_names, percentiles, 
 
         for model_name in models_names:
             model_exceedance_preds = []
+            model_exceedance_prob_preds = []
 
             for i in range(pred_df.shape[0]):
                 row_pred = pred_df.iloc[i, :]
@@ -65,9 +70,12 @@ def predict_exceedance_from_params(pred_df, test_df, models_names, percentiles, 
                 
                 probability = 1 - norm.cdf(row_test[f'y_percentile_{percentile}'], loc=mean, scale=std)
                 classification = 1 if probability >= 0.5 else 0
+
+                model_exceedance_prob_preds.append(probability)
                 model_exceedance_preds.append(classification)
             
             exceedance_df[f'{model_name}_{percentile}'] = model_exceedance_preds
+            exceedance_df[f'{model_name}_prob_{percentile}'] = model_exceedance_prob_preds
     
     exceedance_df.to_csv(filename, index=False)
     return exceedance_df
@@ -103,13 +111,7 @@ def train_and_numerical_forecast(models, train_df, test_df, horizon, group, scal
 
     # Add true values to the dataframe
     pred_df['y_true'] = test_df['y'].to_list()
-    #y_above_percentile_cols = [col for col in test_df.columns if "percentile" in col]
-    #for col in y_above_percentile_cols:
-    #    pred_df[col] = test_df[col].to_list()
 
-    # Median results columns will not be used later
-    median_cols = [col for col in pred_df.columns if "-median" in col]
-    pred_df = pred_df.drop(columns=median_cols)
     pred_df = pred_df.reset_index()
     return pred_df
 
@@ -117,15 +119,21 @@ def train_and_numerical_forecast(models, train_df, test_df, horizon, group, scal
 def get_global_auc_logloss(pred_df, test_df, models_names, test_percentiles, filename="auc_logloss.csv"):
     auc_logloss_df = []
     
+    test_df = test_df.reset_index()
+
     for percentile in test_percentiles:
 
-        y_true_above_thr = test_df[f'y_above_percentile_{percentile}'].tolist() + [0,1]
+        y_true_above_thr = test_df[f'y_above_percentile_{percentile}']
 
         for model_name in models_names:
 
-            model_forecast_above_thr = pred_df[f'{model_name}_{percentile}'].tolist() + [0,1]
-            model_auc = roc_auc_score(y_true_above_thr, model_forecast_above_thr)
-            model_logloss = log_loss(y_true_above_thr, model_forecast_above_thr)
+            model_forecast_above_thr = pred_df[f'{model_name}_prob_{percentile}']
+            
+            y_true_above_thr_filter = y_true_above_thr[model_forecast_above_thr.notna()].tolist() + [0,1]
+            model_forecast_above_thr = model_forecast_above_thr.dropna(ignore_index=True).tolist() + [0,1]
+
+            model_auc = roc_auc_score(y_true_above_thr_filter, model_forecast_above_thr)
+            model_logloss = log_loss(y_true_above_thr_filter, model_forecast_above_thr)
             auc_logloss_df.append({
                 'Model_Percentile': f'{model_name}_{percentile}',
                 'AUC': model_auc,
