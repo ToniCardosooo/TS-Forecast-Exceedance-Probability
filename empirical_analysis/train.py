@@ -21,13 +21,13 @@ from empirical_analysis.utils import (
 )
 
 DATASET = GluontsDataset
-GROUP = 'm1_monthly' # m1_monthly, m1_quarterly
+GROUP = 'm1_quarterly'
 THR_PERCENTILE = [90, 95, 99]
-LOSS = MQLoss
+LOSS = DistributionLoss
 
 LEVEL_LIST = [80, 90, 98]
 LOSS_KWARGS = {'level': LEVEL_LIST} if LOSS == MQLoss else {'distribution': 'Normal', 'level': LEVEL_LIST, 'return_params': True}
-HORIZON = 12
+HORIZON = 4
 LAG = 24 
 SCALER = 'standard'
 
