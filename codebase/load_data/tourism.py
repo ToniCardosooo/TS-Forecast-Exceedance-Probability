@@ -8,7 +8,8 @@ from codebase.load_data.base import LoadDataset
 
 class TourismDataset(LoadDataset):
     DATASET_PATH = 'assets/datasets/tourism/'
-    DATASET_NAME = 'T'
+    _DATASET_NAME = 'Tourism'
+    DATASET_NAME = _DATASET_NAME
 
     horizons_map = {
         'Quarterly': 8,
@@ -71,5 +72,8 @@ class TourismDataset(LoadDataset):
         df = pd.concat(ds, axis=1)
         df = df.reset_index().melt('index').dropna().reset_index(drop=True)
         df.columns = ['ds', 'unique_id', 'y']
+
+        TourismDataset.DATASET_NAME = TourismDataset._DATASET_NAME
+        TourismDataset.DATASET_NAME += "_"+group
 
         return df

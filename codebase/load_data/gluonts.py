@@ -9,7 +9,8 @@ pprint(dataset_names)
 
 
 class GluontsDataset(LoadDataset):
-    DATASET_NAME = 'GLUONTS'
+    _DATASET_NAME = 'GLUONTS'
+    DATASET_NAME = _DATASET_NAME
 
     horizons_map = {
         'nn5_weekly': 12,
@@ -69,4 +70,6 @@ class GluontsDataset(LoadDataset):
         df = pd.concat(df_list).reset_index(drop=True)
         df = df[['unique_id', 'ds', 'y']]
 
+        GluontsDataset.DATASET_NAME = GluontsDataset._DATASET_NAME
+        GluontsDataset.DATASET_NAME += "_"+group
         return df

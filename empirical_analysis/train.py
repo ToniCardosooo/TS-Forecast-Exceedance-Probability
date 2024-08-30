@@ -1,9 +1,10 @@
 import pandas as pd
 import os
 
-from datasetsforecast.m3 import M3 # Monthly, Quarterly
+#from datasetsforecast.m3 import M3 # Monthly, Quarterly
+from codebase.load_data.m3 import M3Dataset # Monthly, Quarterly
 from codebase.load_data.tourism import TourismDataset # Monthly, Quarterly
-from codebase.load_data.gluonts import GluontsDataset # m1_monthly, m1_quarterly
+from codebase.load_data.gluonts import GluontsDataset # m1_monthly, m1_quarterly, electricity_weekly
 
 from neuralforecast.auto import AutoMLP, AutoNHITS, AutoLSTM, AutoGRU, AutoDeepAR
 from neuralforecast.losses.pytorch import MQLoss, DistributionLoss
@@ -21,38 +22,31 @@ from empirical_analysis.utils import (
 )
 
 DATASET = GluontsDataset
-GROUP = 'm1_quarterly'
+GROUP = 'electricity_weekly'
 THR_PERCENTILE = [90, 95, 99]
 LOSS = DistributionLoss
 
 LEVEL_LIST = [80, 90, 98]
 LOSS_KWARGS = {'level': LEVEL_LIST} if LOSS == MQLoss else {'distribution': 'Normal', 'level': LEVEL_LIST, 'return_params': True}
-HORIZON = 4
+HORIZON = 12
 LAG = 24 
 SCALER = 'standard'
 
 
 if __name__ == '__main__':
-    dataset_name = DATASET.__name__
 
-    if DATASET == M3:
-        df, _, _ = DATASET.load(directory='./', group=GROUP)
-        df['ds'] = pd.to_datetime(df['ds'])
-    else:
-        df = DATASET.load_data(group=GROUP)
-        if GROUP == 'm1_monthly': GROUP = 'Monthly'
-        elif GROUP == 'm1_quarterly': GROUP = 'Quarterly'
+    df = DATASET.load_data(group=GROUP)
 
     train_df, test_df = preprocess_dataset(df, HORIZON, THR_PERCENTILE)
 
-    experiment_id = f"{GROUP}_{LOSS.__name__}"
+    experiment_id = f"{DATASET.DATASET_NAME}_{LOSS.__name__}"
     
     try:
-        os.makedirs(f"./{dataset_name}_{experiment_id}")
+        os.makedirs(f"./{experiment_id}")
     except OSError:
-        print(f"Directory {dataset_name}_{experiment_id} already exists!")
+        print(f"Directory {experiment_id} already exists!")
 
-    os.chdir(f"./{dataset_name}_{experiment_id}")
+    os.chdir(f"./{experiment_id}")
 
     model_classes = [AutoMLP, AutoNHITS, AutoLSTM, AutoGRU] # AutoMLP, AutoNHITS, AutoLSTM, AutoGRU
     if LOSS == DistributionLoss:
@@ -96,12 +90,12 @@ if __name__ == '__main__':
         models[model_class.__name__] = model_class(**model_kwargs)
 
     # Train models and save numerical forecast predictions
-    if f"forecast_df_{dataset_name}_{experiment_id}.csv" not in os.listdir():
-        forecast_df = train_and_numerical_forecast(models, train_df, test_df, horizon=HORIZON, group=GROUP, scaler=SCALER, percentile_training_levels=LEVEL_LIST)
-        forecast_df.to_csv(f"forecast_df_{dataset_name}_{experiment_id}.csv", index=False)
+    if f"forecast_df_{DATASET.DATASET_NAME}_{experiment_id}.csv" not in os.listdir():
+        forecast_df = train_and_numerical_forecast(models, train_df, test_df, horizon=HORIZON, dataset=DATASET, group=GROUP, scaler=SCALER, percentile_training_levels=LEVEL_LIST)
+        forecast_df.to_csv(f"forecast_df_{DATASET.DATASET_NAME}_{experiment_id}.csv", index=False)
     else:
         print("Forecast values already exist!")
-        forecast_df = pd.read_csv(f"forecast_df_{dataset_name}_{experiment_id}.csv")
+        forecast_df = pd.read_csv(f"forecast_df_{DATASET.DATASET_NAME}_{experiment_id}.csv")
 
     # Get SMAPE values
     models_names = ['SeasonalNaive'] + list(models.keys())
@@ -110,7 +104,7 @@ if __name__ == '__main__':
         models_names = ['SeasonalNaive'] + [model_name+"-median" for model_name in models.keys()]
 
     smape_df = smape(forecast_df, models=models_names, id_col='unique_id', target_col='y_true')
-    smape_df.to_csv(f"smape_{dataset_name}_{experiment_id}.csv", index=False)
+    smape_df.to_csv(f"smape_{DATASET.DATASET_NAME}_{experiment_id}.csv", index=False)
 
     if LOSS == MQLoss:
         models_names = ['SeasonalNaive'] + list(models.keys())
@@ -118,13 +112,13 @@ if __name__ == '__main__':
     # Predict exceedance events, save them and perform AUC and Log Loss metrics on the results
     # From percentiles
     exceedance_percentiles_df = predict_exceedance_from_percentiles(forecast_df, test_df, models_names, THR_PERCENTILE, f"exceedance_percentiles_{experiment_id}.csv")
-    get_global_auc_logloss(exceedance_percentiles_df, test_df, models_names, THR_PERCENTILE, filename=f"auc_logloss_percentiles_{dataset_name}_{experiment_id}.csv")
+    get_global_auc_logloss(exceedance_percentiles_df, test_df, models_names, THR_PERCENTILE, filename=f"auc_logloss_percentiles_{DATASET.DATASET_NAME}_{experiment_id}.csv")
 
     # From distribution parameters
     if "AutoDeepAR" in list(models.keys()):
         models_names = list(models.keys()) 
         models_names.remove("AutoDeepAR") # Does not include Seasonal Naive nor AutoDeepAR
         exceedance_params_df = predict_exceedance_from_params(forecast_df, test_df, models_names, THR_PERCENTILE, f"exceedance_params_{experiment_id}.csv")
-        get_global_auc_logloss(exceedance_params_df, test_df, models_names, THR_PERCENTILE, filename=f"auc_logloss_params_{dataset_name}_{experiment_id}.csv")
+        get_global_auc_logloss(exceedance_params_df, test_df, models_names, THR_PERCENTILE, filename=f"auc_logloss_params_{DATASET.DATASET_NAME}_{experiment_id}.csv")
 
 

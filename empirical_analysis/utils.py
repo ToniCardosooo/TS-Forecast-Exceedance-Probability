@@ -88,15 +88,15 @@ models = {
 }
 """
 
-def train_and_numerical_forecast(models, train_df, test_df, horizon, group, scaler, percentile_training_levels):
+def train_and_numerical_forecast(models, train_df, test_df, horizon, dataset, group, scaler, percentile_training_levels):
     # Seasonal Naive as a baseline
-    season_length = 12 if group=='Monthly' else 4 # Quarterly -> 4
-    snaive = SeasonalNaive(season_length=season_length)  
-    sf = StatsForecast(models=[snaive], freq=group[0])
+    season_length = dataset.frequency_map[group]
+    snaive = SeasonalNaive(season_length=season_length)
+    sf = StatsForecast(models=[snaive], freq=dataset.frequency_pd[group])
     pred_sf = sf.forecast(df=train_df, h=horizon, level=percentile_training_levels)
     
     # Train the other models
-    nf = NeuralForecast(models=list(models.values()), freq=group[0], local_scaler_type=scaler)
+    nf = NeuralForecast(models=list(models.values()), freq=dataset.frequency_pd[group], local_scaler_type=scaler)
     nf.fit(train_df, val_size=horizon, verbose=False)
     pred_nf = nf.predict(verbose=False)
 

@@ -4,7 +4,8 @@ from codebase.load_data.base import LoadDataset
 
 
 class M3Dataset(LoadDataset):
-    DATASET_NAME = 'M3'
+    _DATASET_NAME = 'M3'
+    DATASET_NAME = _DATASET_NAME
 
     horizons_map = {
         'Quarterly': 6,
@@ -33,4 +34,8 @@ class M3Dataset(LoadDataset):
     @classmethod
     def load_data(cls, group):
         ds, *_ = M3.load(cls.DATASET_PATH, group=group)
+
+        M3Dataset.DATASET_NAME = M3Dataset._DATASET_NAME
+        M3Dataset.DATASET_NAME += "_"+group
+        
         return ds
