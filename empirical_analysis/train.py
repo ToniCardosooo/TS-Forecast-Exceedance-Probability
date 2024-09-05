@@ -1,11 +1,6 @@
 import pandas as pd
 import os
 
-#from datasetsforecast.m3 import M3 # Monthly, Quarterly
-from codebase.load_data.m3 import M3Dataset # Monthly, Quarterly
-from codebase.load_data.tourism import TourismDataset # Monthly, Quarterly
-from codebase.load_data.gluonts import GluontsDataset # m1_monthly, m1_quarterly, electricity_weekly
-
 from neuralforecast.auto import AutoMLP, AutoNHITS, AutoLSTM, AutoGRU, AutoDeepAR
 from neuralforecast.losses.pytorch import MQLoss, DistributionLoss
 from ray import tune
@@ -21,25 +16,18 @@ from empirical_analysis.utils import (
     get_global_auc_logloss
 )
 
-DATASET = GluontsDataset
-GROUP = 'electricity_weekly'
-THR_PERCENTILE = [90, 95, 99]
-LOSS = DistributionLoss
+def run_experiment(dataset, group, thr_percentiles, loss_fn, scaler):
 
-LEVEL_LIST = [80, 90, 98]
-LOSS_KWARGS = {'level': LEVEL_LIST} if LOSS == MQLoss else {'distribution': 'Normal', 'level': LEVEL_LIST, 'return_params': True}
-HORIZON = 12
-LAG = 24 
-SCALER = 'standard'
+    horizon = dataset.horizons_map[group]
 
+    level_list = [100 - 2*(100-thr) for thr in thr_percentiles]
+    loss_kwargs = {'level': level_list} if loss_fn == MQLoss else {'distribution': 'Normal', 'level': level_list, 'return_params': True}
 
-if __name__ == '__main__':
+    df = dataset.load_data(group=group)
 
-    df = DATASET.load_data(group=GROUP)
+    train_df, test_df = preprocess_dataset(df, horizon, thr_percentiles)
 
-    train_df, test_df = preprocess_dataset(df, HORIZON, THR_PERCENTILE)
-
-    experiment_id = f"{DATASET.DATASET_NAME}_{LOSS.__name__}"
+    experiment_id = f"{dataset.DATASET_NAME}_{loss_fn.__name__}"
     
     try:
         os.makedirs(f"./{experiment_id}")
@@ -49,7 +37,7 @@ if __name__ == '__main__':
     os.chdir(f"./{experiment_id}")
 
     model_classes = [AutoMLP, AutoNHITS, AutoLSTM, AutoGRU] # AutoMLP, AutoNHITS, AutoLSTM, AutoGRU
-    if LOSS == DistributionLoss:
+    if loss_fn == DistributionLoss:
         model_classes.append(AutoDeepAR)
 
     models = {}
@@ -57,8 +45,8 @@ if __name__ == '__main__':
     for model_class in model_classes:
         
         # Hyperparameter tunning
-        config = model_class.get_default_config(h=HORIZON, backend='ray')
-        config["input_size"] = LAG
+        config = model_class.get_default_config(h=horizon, backend='ray')
+        config["input_size"] = dataset.lag_map[group]
         config["max_steps"] = 1500  ### train on 1500 max steps
         config["val_check_steps"] = 300 ### 300 steps interval for validation
         config["random_seed"] = tune.randint(1, 100)
@@ -70,55 +58,78 @@ if __name__ == '__main__':
 
         # DeepAR does not return parameters due to Monte Carlo sampling
         if model_class == AutoDeepAR:
-            LOSS_KWARGS['return_params'] = False
+            loss_kwargs['return_params'] = False
 
         # Model hyperparameters
         model_kwargs = {
-            'h': HORIZON,
-            'loss': LOSS(**LOSS_KWARGS),
+            'h': horizon,
+            'loss': loss_fn(**loss_kwargs),
             'config': config,
-            'search_alg': HyperOptSearch(),
+            'search_alg': HyperOptSearch(n_initial_points=10),
             'backend': 'ray',
-            'num_samples': 20 ### train on 20 samples
+            'num_samples': 40 ### train on 20 samples
         }
 
         # DeepAR MQLoss validation loss doesnt use 3 quatile levels by default, it's needed to set them
         if model_class == AutoDeepAR:
-            model_kwargs['valid_loss'] = MQLoss(level=LEVEL_LIST)
+            model_kwargs['valid_loss'] = MQLoss(level=level_list)
         
         # Define model
         models[model_class.__name__] = model_class(**model_kwargs)
 
     # Train models and save numerical forecast predictions
-    if f"forecast_df_{DATASET.DATASET_NAME}_{experiment_id}.csv" not in os.listdir():
-        forecast_df = train_and_numerical_forecast(models, train_df, test_df, horizon=HORIZON, dataset=DATASET, group=GROUP, scaler=SCALER, percentile_training_levels=LEVEL_LIST)
-        forecast_df.to_csv(f"forecast_df_{DATASET.DATASET_NAME}_{experiment_id}.csv", index=False)
+    if f"forecast_df_{experiment_id}.csv" not in os.listdir():
+        forecast_df = train_and_numerical_forecast(models, train_df, test_df, horizon=horizon, dataset=dataset, group=group, scaler=scaler, percentile_training_levels=level_list)
+        forecast_df.to_csv(f"forecast_df_{experiment_id}.csv", index=False)
     else:
         print("Forecast values already exist!")
-        forecast_df = pd.read_csv(f"forecast_df_{DATASET.DATASET_NAME}_{experiment_id}.csv")
+        forecast_df = pd.read_csv(f"forecast_df_{experiment_id}.csv")
 
     # Get SMAPE values
     models_names = ['SeasonalNaive'] + list(models.keys())
     
-    if LOSS == MQLoss:
+    if loss_fn == MQLoss:
         models_names = ['SeasonalNaive'] + [model_name+"-median" for model_name in models.keys()]
 
     smape_df = smape(forecast_df, models=models_names, id_col='unique_id', target_col='y_true')
-    smape_df.to_csv(f"smape_{DATASET.DATASET_NAME}_{experiment_id}.csv", index=False)
+    smape_df.to_csv(f"smape_{experiment_id}.csv", index=False)
 
-    if LOSS == MQLoss:
+    if loss_fn == MQLoss:
         models_names = ['SeasonalNaive'] + list(models.keys())
 
     # Predict exceedance events, save them and perform AUC and Log Loss metrics on the results
     # From percentiles
-    exceedance_percentiles_df = predict_exceedance_from_percentiles(forecast_df, test_df, models_names, THR_PERCENTILE, f"exceedance_percentiles_{experiment_id}.csv")
-    get_global_auc_logloss(exceedance_percentiles_df, test_df, models_names, THR_PERCENTILE, filename=f"auc_logloss_percentiles_{DATASET.DATASET_NAME}_{experiment_id}.csv")
+    exceedance_percentiles_df = predict_exceedance_from_percentiles(forecast_df, test_df, models_names, thr_percentiles, f"exceedance_percentiles_{experiment_id}.csv")
+    get_global_auc_logloss(exceedance_percentiles_df, test_df, models_names, thr_percentiles, filename=f"auc_logloss_percentiles_{experiment_id}.csv")
 
     # From distribution parameters
     if "AutoDeepAR" in list(models.keys()):
         models_names = list(models.keys()) 
         models_names.remove("AutoDeepAR") # Does not include Seasonal Naive nor AutoDeepAR
-        exceedance_params_df = predict_exceedance_from_params(forecast_df, test_df, models_names, THR_PERCENTILE, f"exceedance_params_{experiment_id}.csv")
-        get_global_auc_logloss(exceedance_params_df, test_df, models_names, THR_PERCENTILE, filename=f"auc_logloss_params_{DATASET.DATASET_NAME}_{experiment_id}.csv")
+        exceedance_params_df = predict_exceedance_from_params(forecast_df, test_df, models_names, thr_percentiles, f"exceedance_params_{experiment_id}.csv")
+        get_global_auc_logloss(exceedance_params_df, test_df, models_names, thr_percentiles, filename=f"auc_logloss_params_{experiment_id}.csv")
 
 
+
+if __name__ == '__main__':
+
+    from codebase.load_data.m3 import M3Dataset # Monthly, Quarterly
+    from codebase.load_data.tourism import TourismDataset # Monthly, Quarterly
+    from codebase.load_data.gluonts import GluontsDataset # m1_monthly, m1_quarterly, electricity_weekly
+
+    DATASET = M3Dataset
+    GROUP = 'Monthly'
+    THR_PERCENTILES = [90, 95, 99]
+    LOSS = DistributionLoss
+
+    HORIZON = 12
+    LAG = 24 
+    SCALER = 'standard'
+
+    run_experiment(
+        dataset=DATASET,
+        group=GROUP,
+        thr_percentiles=THR_PERCENTILES,
+        loss_fn=LOSS,
+        scaler=SCALER
+    )

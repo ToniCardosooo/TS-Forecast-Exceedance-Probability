@@ -13,31 +13,35 @@ class GluontsDataset(LoadDataset):
     DATASET_NAME = _DATASET_NAME
 
     horizons_map = {
-        'nn5_weekly': 12,
-        'electricity_weekly': 12,
-        'm1_quarterly': 3,
-        'm1_monthly': 8,
+        #'electricity_hourly': 12,
+        'car_parts_without_missing': 12,
+        #'electricity_weekly': 12,
+        #'m1_quarterly': 4,
+        #'m1_monthly': 12,
     }
 
     frequency_map = {
-        'nn5_weekly': 52,
-        'electricity_weekly': 52,
-        'm1_quarterly': 4,
-        'm1_monthly': 12,
+        #'electricity_hourly': 24,
+        'car_parts_without_missing': 12,
+        #'electricity_weekly': 52,
+        #'m1_quarterly': 4,
+        #'m1_monthly': 12,
     }
 
-    context_length = {
-        'nn5_weekly': 52,
-        'electricity_weekly': 52,
-        'm1_quarterly': 8,
-        'm1_monthly': 24,
+    lag_map = {
+        #'electricity_hourly': 24,
+        'car_parts_without_missing': 24,
+        #'electricity_weekly': 24,
+        #'m1_quarterly': 24,
+        #'m1_monthly': 24,
     }
 
     frequency_pd = {
-        'nn5_weekly': 'W',
-        'electricity_weekly': 'W',
-        'm1_quarterly': 'Q',
-        'm1_monthly': 'M',
+        #'electricity_hourly': 'H',
+        'car_parts_without_missing': 'M',
+        #'electricity_weekly': 'W',
+        #'m1_quarterly': 'Q',
+        #'m1_monthly': 'M',
     }
 
     data_group = [*horizons_map]
@@ -47,7 +51,7 @@ class GluontsDataset(LoadDataset):
     @classmethod
     def load_data(cls, group):
         # group = 'solar_weekly'
-        dataset = get_dataset(group, regenerate=False)
+        dataset = get_dataset(group, regenerate=True)
         train_list = dataset.train
 
         df_list = []

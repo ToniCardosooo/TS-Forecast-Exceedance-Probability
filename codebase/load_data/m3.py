@@ -4,12 +4,12 @@ from codebase.load_data.base import LoadDataset
 
 
 class M3Dataset(LoadDataset):
-    _DATASET_NAME = 'M3'
+    _DATASET_NAME = 'M3Dataset'
     DATASET_NAME = _DATASET_NAME
 
     horizons_map = {
-        'Quarterly': 6,
-        'Monthly': 18
+        'Quarterly': 11,
+        'Monthly': 12
     }
 
     frequency_map = {
@@ -17,8 +17,8 @@ class M3Dataset(LoadDataset):
         'Monthly': 12
     }
 
-    context_length = {
-        'Quarterly': 8,
+    lag_map = {
+        'Quarterly': 24,
         'Monthly': 24
     }
 

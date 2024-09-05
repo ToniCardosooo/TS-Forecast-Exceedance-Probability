@@ -1,2 +1,4 @@
 m3
 lightning_logs
+original_results
+*.ipynb
