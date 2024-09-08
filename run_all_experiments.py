@@ -11,8 +11,8 @@ from empirical_analysis.train import run_experiment
 SCALER = 'standard'
 THR_PERCENTILES = [90, 95, 99]
 
-# DATASETS = [M3Dataset, TourismDataset, GluontsDataset]
-DATASETS = [GluontsDataset]
+DATASETS = [M3Dataset, TourismDataset, GluontsDataset]
+# DATASETS = [GluontsDataset]
 LOSSES = [MQLoss, DistributionLoss]
 
 for dataset in DATASETS:

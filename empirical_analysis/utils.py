@@ -1,9 +1,7 @@
 import pandas as pd
-import numpy as np
 from scipy.stats import norm
 from sklearn.metrics import roc_auc_score, log_loss
 
-from statsforecast.models import SeasonalNaive
 from statsforecast import StatsForecast
 from neuralforecast import NeuralForecast
 
@@ -80,33 +78,24 @@ def predict_exceedance_from_params(pred_df, test_df, models_names, percentiles, 
     exceedance_df.to_csv(filename, index=False)
     return exceedance_df
 
-"""
-models = {
-    "NHITS": NHITS(...),
-    "GRU": GRU(...),
-    ...
-}
-"""
 
-def train_and_numerical_forecast(models, train_df, test_df, horizon, dataset, group, scaler, percentile_training_levels):
-    # Seasonal Naive as a baseline
-    season_length = dataset.frequency_map[group]
-    snaive = SeasonalNaive(season_length=season_length)
-    sf = StatsForecast(models=[snaive], freq=dataset.frequency_pd[group])
+def train_and_numerical_forecast(stats_models, neural_models, train_df, test_df, horizon, dataset, group, scaler, percentile_training_levels):
+    # Run statistical models
+    sf = StatsForecast(models=list(stats_models.values()), freq=dataset.frequency_pd[group], n_jobs=-1)
     pred_sf = sf.forecast(df=train_df, h=horizon, level=percentile_training_levels)
     
-    # Train the other models
-    nf = NeuralForecast(models=list(models.values()), freq=dataset.frequency_pd[group], local_scaler_type=scaler)
+    # Train Deep Learning models
+    nf = NeuralForecast(models=list(neural_models.values()), freq=dataset.frequency_pd[group], local_scaler_type=scaler)
     nf.fit(train_df, val_size=horizon, verbose=False)
     pred_nf = nf.predict(verbose=False)
 
     # Save best hyperparameters for each model
     if "Auto" in nf.models[0].__class__.__name__:
-        for i in range(len(models.keys())):
+        for i in range(len(neural_models.keys())):
             model_name = nf.models[i].__class__.__name__
             nf.models[i].results.get_dataframe().to_csv(f"hyperparams_{model_name}.csv", index=False)
 
-    # Merge Season Naive results with the other models results
+    # Merge statistical models' results with the other models results
     pred_df = pd.merge(pred_sf, pred_nf, how='inner', on=['unique_id','ds'])
 
     # Add true values to the dataframe
