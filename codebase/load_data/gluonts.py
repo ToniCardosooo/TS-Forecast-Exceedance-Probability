@@ -14,42 +14,42 @@ class GluontsDataset(LoadDataset):
 
     horizons_map = {
         'car_parts_without_missing': 12,
-        'airpassengers': 12,
-        'exchange_rate_nips': 12,
+        #'airpassengers': 12,
+        #'exchange_rate_nips': 12,
         'electricity_weekly': 12,
-        'nn5_weekly': 12,
-        'm1_quarterly': 4,
-        'm1_monthly': 12,
+        #'nn5_weekly': 12,
+        #'m1_quarterly': 4,
+        #'m1_monthly': 12,
     }
 
     frequency_map = {
         'car_parts_without_missing': 12,
-        'airpassengers': 12,
-        'exchange_rate_nips': 365,
+        #'airpassengers': 12,
+        #'exchange_rate_nips': 365,
         'electricity_weekly': 52,
-        'nn5_weekly': 52,
-        'm1_quarterly': 4,
-        'm1_monthly': 12,
+        #'nn5_weekly': 52,
+        #'m1_quarterly': 4,
+        #'m1_monthly': 12,
     }
 
     lag_map = {
         'car_parts_without_missing': 24,
-        'airpassengers': 24,
-        'exchange_rate_nips': 24,
+        #'airpassengers': 24,
+        #'exchange_rate_nips': 24,
         'electricity_weekly': 24,
-        'nn5_weekly': 24,
-        'm1_quarterly': 24,
-        'm1_monthly': 24,
+        #'nn5_weekly': 24,
+        #'m1_quarterly': 24,
+        #'m1_monthly': 24,
     }
 
     frequency_pd = {
         'car_parts_without_missing': 'M',
-        'airpassengers': 'M',
-        'exchange_rate_nips': 'D',
+        #'airpassengers': 'M',
+        #'exchange_rate_nips': 'D',
         'electricity_weekly': 'W',
-        'nn5_weekly': 'W',
-        'm1_quarterly': 'Q',
-        'm1_monthly': 'M',
+        #'nn5_weekly': 'W',
+        #'m1_quarterly': 'Q',
+        #'m1_monthly': 'M',
     }
 
     data_group = [*horizons_map]
