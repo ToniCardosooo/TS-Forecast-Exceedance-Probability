@@ -50,9 +50,8 @@ def run_experiment(dataset, group, thr_percentiles, loss_fn, scaler):
         
         # Hyperparameter tunning
         config = model_class.get_default_config(h=horizon, backend='ray')
-        config["input_size"] = dataset.lag_map[group]
         config["max_steps"] = 1500  ### train on 1500 max steps
-        config["val_check_steps"] = 300 ### 300 steps interval for validation
+        config["val_check_steps"] = 50 ### 50 steps interval for validation
         config["random_seed"] = tune.randint(1, 100)
         config["enable_checkpointing"] = True
 
@@ -68,15 +67,16 @@ def run_experiment(dataset, group, thr_percentiles, loss_fn, scaler):
         model_kwargs = {
             'h': horizon,
             'loss': loss_fn(**loss_kwargs),
+            'valid_loss': loss_fn(**loss_kwargs),
             'config': config,
             'search_alg': HyperOptSearch(n_initial_points=10),
             'backend': 'ray',
-            'num_samples': 40 ### train on 40 samples
+            'num_samples': 20 ### train on 40 samples
         }
 
         # DeepAR MQLoss validation loss doesnt use 3 quatile levels by default, it's needed to set them
         if model_class == AutoDeepAR:
-            model_kwargs['valid_loss'] = MQLoss(level=level_list)
+           model_kwargs['valid_loss'] = MQLoss(level=level_list)
         
         # Define model
         neural_models[model_class.__name__] = model_class(**model_kwargs)

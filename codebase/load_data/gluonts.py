@@ -14,9 +14,11 @@ class GluontsDataset(LoadDataset):
 
     horizons_map = {
         'car_parts_without_missing': 12,
+        'electricity_weekly': 12,
+        'traffic_nips': 12,
+
         #'airpassengers': 12,
         #'exchange_rate_nips': 12,
-        'electricity_weekly': 12,
         #'nn5_weekly': 12,
         #'m1_quarterly': 4,
         #'m1_monthly': 12,
@@ -24,9 +26,11 @@ class GluontsDataset(LoadDataset):
 
     frequency_map = {
         'car_parts_without_missing': 12,
+        'electricity_weekly': 52,
+        'traffic_nips': 365,
+
         #'airpassengers': 12,
         #'exchange_rate_nips': 365,
-        'electricity_weekly': 52,
         #'nn5_weekly': 52,
         #'m1_quarterly': 4,
         #'m1_monthly': 12,
@@ -34,9 +38,11 @@ class GluontsDataset(LoadDataset):
 
     lag_map = {
         'car_parts_without_missing': 24,
+        'electricity_weekly': 24,
+        'traffic_nips': 24,
+
         #'airpassengers': 24,
         #'exchange_rate_nips': 24,
-        'electricity_weekly': 24,
         #'nn5_weekly': 24,
         #'m1_quarterly': 24,
         #'m1_monthly': 24,
@@ -44,9 +50,11 @@ class GluontsDataset(LoadDataset):
 
     frequency_pd = {
         'car_parts_without_missing': 'M',
+        'electricity_weekly': 'W',
+        'traffic_nips': 'D',
+
         #'airpassengers': 'M',
         #'exchange_rate_nips': 'D',
-        'electricity_weekly': 'W',
         #'nn5_weekly': 'W',
         #'m1_quarterly': 'Q',
         #'m1_monthly': 'M',
@@ -81,6 +89,11 @@ class GluontsDataset(LoadDataset):
 
         df = pd.concat(df_list).reset_index(drop=True)
         df = df[['unique_id', 'ds', 'y']]
+
+        if group == 'traffic_nips':
+            df['ds'] = pd.to_datetime(df['ds'])
+            df = df.groupby('unique_id').resample('D', on='ds').mean().reset_index()
+            group += GluontsDataset.frequency_pd['traffic_nips']
 
         GluontsDataset.DATASET_NAME = GluontsDataset._DATASET_NAME
         GluontsDataset.DATASET_NAME += "_"+group

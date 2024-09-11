@@ -12,7 +12,6 @@ SCALER = 'standard'
 THR_PERCENTILES = [90, 95, 99]
 
 DATASETS = [M3Dataset, TourismDataset, GluontsDataset]
-# DATASETS = [GluontsDataset]
 LOSSES = [MQLoss, DistributionLoss]
 
 for dataset in DATASETS:
@@ -21,3 +20,4 @@ for dataset in DATASETS:
             os.chdir("/home/tonicardoso/Desktop/TS-Forecast-Exceedance-Probability")
             run_experiment(dataset, group, THR_PERCENTILES, loss_fn, SCALER)
 
+ 
