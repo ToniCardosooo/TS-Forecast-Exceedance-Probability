@@ -71,7 +71,7 @@ def run_experiment(dataset, group, thr_percentiles, loss_fn, scaler):
             'config': config,
             'search_alg': HyperOptSearch(n_initial_points=10),
             'backend': 'ray',
-            'num_samples': 20 ### train on 40 samples
+            'num_samples': 40 ### train on 40 samples
         }
 
         # DeepAR MQLoss validation loss doesnt use 3 quatile levels by default, it's needed to set them
