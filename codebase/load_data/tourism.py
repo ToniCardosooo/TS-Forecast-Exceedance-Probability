@@ -12,22 +12,22 @@ class TourismDataset(LoadDataset):
     DATASET_NAME = _DATASET_NAME
 
     horizons_map = {
-        'Quarterly': 12,
+        #'Quarterly': 12,
         'Monthly': 12
     }
 
     frequency_map = {
-        'Quarterly': 4,
+        #'Quarterly': 4,
         'Monthly': 12
     }
 
     lag_map = {
-        'Quarterly': 24,
+        #'Quarterly': 24,
         'Monthly': 24
     }
 
     frequency_pd = {
-        'Quarterly': 'QS',
+        #'Quarterly': 'QS',
         'Monthly': 'MS'
     }
 

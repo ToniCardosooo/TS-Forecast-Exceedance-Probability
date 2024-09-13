@@ -8,22 +8,22 @@ class M3Dataset(LoadDataset):
     DATASET_NAME = _DATASET_NAME
 
     horizons_map = {
-        'Quarterly': 11,
+        #'Quarterly': 11,
         'Monthly': 12
     }
 
     frequency_map = {
-        'Quarterly': 4,
+        #'Quarterly': 4,
         'Monthly': 12
     }
 
     lag_map = {
-        'Quarterly': 24,
+        #'Quarterly': 24,
         'Monthly': 24
     }
 
     frequency_pd = {
-        'Quarterly': 'Q',
+        #'Quarterly': 'Q',
         'Monthly': 'M'
     }
 
